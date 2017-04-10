@@ -1,9 +1,9 @@
 ---
 - name: Install WordPress, MySQL, Nginx, and PHP-FPM
   hosts: all
-  remote_user: root
+  remote_user: cloudy
   # remote_user: user
-  # become: yes
+  become: yes
   # become_method: sudo
 
   roles:
