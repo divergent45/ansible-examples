@@ -1,0 +1,266 @@
+#network defination 
+
+#for first network 
+net1_network_name: net5
+net1_is_the_network_shared_between_customers: false
+net1_accessable_outside_openstack_virtual_network: false
+
+#subnet on the first   network
+subNetNameA: subnet1net5
+subnetAddressInCidrA: "185.1.1.0/24" 
+dnsserverForSubnetA: 
+ - "185.1.1.10"
+ - "185.1.1.11"    
+additionalRoutingForSubnetA: 
+ - destination: 186.1.1.0/24
+   nexthop: 185.1.1.2
+ - destination: 187.1.1.0/24
+   nexthop: 185.1.1.3
+dhcpToBeEnabledA: True
+dhcpIpAllocationPoolStartA: 185.1.1.20 
+dhcpIpAllocationPoolEndA: 185.1.1.240
+
+#for second  network 
+net2_network_name: net6
+net2_is_the_network_shared_between_customers: false  
+net2_accessable_outside_openstack_virtual_network: false  
+
+#subnet on the net4  network
+subNetNameB: subnet1net6
+subnetAddressInCidrB: 186.1.1.0/24 
+dnsserverForSubnetB: 
+ - 186.1.1.10
+ - 186.1.1.11 
+additionalRoutingForSubnetB: 
+ - destination: 185.1.1.0/24
+   nexthop: 186.1.1.2
+ 
+dhcpToBeEnabledB: True
+dhcpIpAllocationPoolStartB: 186.1.1.20
+dhcpIpAllocationPoolEndB: 186.1.1.240
+
+#First internal router to connect net3 to net4  
+routerNameA: net5-net6
+externalNetworkAttchedWithRouterA: 
+subnetNamesTobeconnectedA: 
+ - subnet1net5
+ - subnet1net6
+ 
+#2nd  router is external  to connect net 3 and net4  to external net
+routerNameB: net5-net6-ext
+externalNetworkAttchedWithRouterB: provider-303
+externalSubnetNgatewayIPB: 
+ - subnet: user-lan-subnet
+   ip: 10.1.0.1
+subnetNamesTobeconnectedB: 
+# - provider-303-subnet
+ - subnet1net5
+ - subnet1net6
+ - 982840ed-cf8f-47fe-9459-8422d53ca5c3 # this is high availibility subnet fixed per installation
+# check with 'openstack port list --router <anyexisting router name> ' . the subnetid associated with 
+#HA network for the router is same.
+ 
+##########################################
+#Define security group ( firewall)
+secgroupdb: dbsecgroup 
+secgroupapp: appsecgroup
+
+
+#define rules for security group
+ruleprot: tcp
+mysqlport: 3306
+dbSourceIP: 0.0.0.0/0
+appSourceIP: 0.0.0.0/0
+appPort: 80
+icmp_proto: icmp
+icmp_port: -1
+icmp_source: 0.0.0.0/0
+ssh_proto: tcp
+ssh_port: 22
+ssh_source: 0.0.0.0/0
+
+###################################################################################
+
+#create openstacck VM 
+
+############################################################################################
+app_servers: {name: django-appserver2, image: itc-ubuntu4, keyname: admin-ansible,
+              flavor: big, netid: "{{net1_network_name}}" , floating_ip_pool: "{{ externalNetworkAttchedWithRouterB }}", security_group: appsecgroup,
+              register-OpenStack-VM: newappserver, inmemory_inventory_group: django-app1-servers, server_role: appserver} 
+
+db_servers: {name: mysql-dbserver2, image: itc-ubuntu4, keyname: admin-ansible,
+             flavor: big, netid: "{{net2_network_name}}" , floating_ip_pool: "{{ externalNetworkAttchedWithRouterB }}", security_group: dbsecgroup,
+             register-OpenStack-VM: newdbserver, inmemory_inventory_group: mysql-db1-servers, server_role: dbserver} 
+
+ 
+############################################################################################
+
+#All the VM will have the following configurations 
+
+####################################################################################################
+host_table_entry: |
+        10.0.0.52       dcim
+        10.0.0.50        dcim2
+etc_environment_entry: |
+        export https_proxy="http://dcim:3128"
+        export http_proxy="http://dcim:3128"
+        no_proxy=localhost,127.0.0.1,10.*.*.*,*.poc,dcim,dcim2,gitlab
+apt_proxy_entry: |
+        Acquire::http { Proxy "http://dcim:3128";};
+        Acquire::https { Proxy "http://dcim:3128";};        
+pip_proxy_entry: |
+        [global]
+        proxy = dcim:3128
+     
+
+############################################################## 
+
+#db server configuration 
+
+#########################################################################
+
+db_server_apt_packages:
+ - mysql-server
+ - mysql-common
+ - python-mysqldb
+#   - MySQLdb
+#   - mysql
+#   - mysqldump
+
+db_server_pip_packages:
+
+db_hostname: mysqldb-server1
+db_names: searchlog
+
+database_user_name: "{{ mysql_db_user }}"
+database_user_password: "{{ mysql_db_user_password }}"
+database_host: localhost 
+database_priv: "*.*:ALL,GRANT"
+
+##
+################################################################################
+
+#app server configuration
+
+###################################################################################
+
+proxy_env:
+    http_proxy: http://dcim:3128
+    https_proxy: http://dcim:3128
+    no_proxy: localhost,127.0.0.1,10.*.*.*,*.poc,dcim,dcim2,gitlaboxy.example.com:8080
+
+app_server_apt_packages:
+ - apache2
+ - apache2-dev
+ - libapache2-mod-wsgi
+ - python-setuptools
+ - build-essential
+ - python-dev
+ - g++
+# - unixodbc
+# - unixodbc-dev  
+# - freetds-dev
+# - freetds-bin
+# - tdsodbc   
+ - python-virtualenv
+ - curl    
+ - rabbitmq-server  
+ - git
+ - python-pip
+ - libevent-dev
+ - libffi-dev
+ - libssl-dev
+ - libxml2-dev
+ - libxslt1-dev
+ - libjpeg8-dev
+ - zlib1g-dev
+ - libevent-dev
+ - libffi-dev
+ - python-mysqldb
+ - mysql-client-core-5.6
+
+ 
+app_server_pip_packages:
+# - mitmproxy
+ - paramiko
+## - pyodbc 
+## - django-pyodbc-azure
+ - django==1.10.1
+ - celery==3.1.23
+## - flower
+ - django-celery
+ - djangorestframework
+ - django-filter
+## - ipcalc
+
+#git hub repository name and web address from where the application code will be synchorinized whenever the playbbok is run
+code_repo: https://github.com/BhujayKumarBhatta/CloudSpacewithSearchLog-Python
+
+#the application will be installed in this directory
+app_dir: /apt/djangoproject
+ 
+
+# in the app server the http service will be served by apache. apache  uses wsgi for serving django python codes. Configuration files are as follows
+app_server_apache_config_files:
+ - {name: apache2.conf, rnm: /etc/apache2/apache2.conf-ansible,fpath: /etc/apache2/apache2.conf, idn: A,x: 0, fsrc: files/apache2.conf.wsgi-ansible, fdest: /etc/apache2/apache2.conf}
+ - {name: ports.conf, rnm: /etc/apache2/ports.conf-ansible,fpath: /etc/apache2/ports.conf, idn: B , x: 1,fsrc: files/ports.conf.ansible-file, fdest: /etc/apache2/ports.conf}
+
+ 
+#######################################################################################################
+
+#reverse proxy or the fron end web servers configuration 
+
+#########################################################################################################
+#considering there is a pre eisting reverse proxy server 
+reverseproxyservername: dcim
+reverseproxyserverip: 10.0.0.52
+reverseproxyserversshport: 2223
+rppointernametovm: e2e-djangovm
+rpvirtualhostnamewebsite: e2e-django
+rp_http_port: 8080
+rp_https_port: 4433
+rp_internet_facing_nic: br-internet
+rp_management_nic: br-mgmt
+#############
+
+
+
+#####################################################################################################################3
+#Openstack VM Details
+#give a vm name in the following format 
+#vnm: vm11
+
+# OS images  name that are avilable in open stack  .The image options are 
+#   vimage: our-ubuntu16   , this image was created by installing iso on a kvm and conerting it as openstack image manually. 
+#   vimage: ubuntu14-downloadedfrom-internet , this image was downloaded from ubuntu site . This is ready made openstack image. 
+#vimage: ubuntu14-downloadedfrom-internet
+#vkeynm: ubuntu-controller2-key
+
+#vfalvor is vm size availbale options are 
+#     m1.r1d2  ,  1 cpu , 1 gb RAM and 20 gb disk 
+#vflavor: m1.r1d2
+
+# There are preexisting networks  with id as below . Check from horizon which network is required 
+#   305c14fa-5c44-4cc6-969d-259333562249
+#   a2310efa-6b42-41ce-b409-f7f522949de7 
+#vnetid: 305c14fa-5c44-4cc6-969d-259333562249 
+
+#Security groups are   
+#vsecurity_group: 
+#default: open ssh port , icmp 
+#webserver: open http and httts
+#mysql-db1-servers: open mysql 3306
+
+#Once the vm is launched , store its openstack values such as floating ip etc. in a temporary varibale
+#register-OpenStack-VM: newserver
+
+
+
+        
+#######################################################################
+# avilable subnet in  external network    
+# user-lan-subnet 10.1.0.0/24 
+# Internet-1 14.142.104.136/29 
+# ext-subnet 203.0.113.0/24 
+#
+########################################################################################
