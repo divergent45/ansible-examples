@@ -5,7 +5,7 @@
     - php5
     - php5-fpm
     - php5-enchant
-    - php5-IDNA_Convert
+    #- php5-IDNA_Convert
     - php5-mbstring
     - php5-mysql
     - php5-PHPMailer
