@@ -6,12 +6,14 @@
     - php5-fpm
     - php5-enchant
     #- php5-IDNA_Convert
-    - php5-mbstring
+    #- php5-mbstring
     - php5-mysql
-    - php5-PHPMailer
-    - php5-process
-    - php5-simplepie
-    - php5-xml
+    #- php5-PHPMailer
+    #- php5-process
+    #- php5-simplepie
+    - php5-xmlrpc
+    - php5-msgpack
+    
 
 - name: Disable default pool
   command: mv /etc/php-fpm.d/www.conf /etc/php-fpm.d/www.disabled creates=/etc/php-fpm.d/www.disabled
